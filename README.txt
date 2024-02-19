@@ -1,36 +1,6 @@
-The core module offers data structures and routines for creating and manipulating:
-  - geological description: structured and unstructured grids
+This repo contains the code for the compostional simulator developed for the paper ""Compositional simulation for carbon storage in porous media using an electrolyte association equation of state" (submitted to the SPE Journal).
 
-  - petrophysical properties (porosity, permeability, net to gross, etc)
+You can find the example scripts in the folder code_for_spej.
 
-  - drive mechanisms (wells, boundary conditions)
-
-  - reservoir state (pressures, saturations, fluxes, etc.)
-
-This includes, in particular, a large number of grid-factory routines and a routine for computing transmissibilities.
-
-
-In addition, the core module provides:
-
-  - a library for automatic differentiation geared towards sparse matrices and coupled PDEs
-
-  - plotting of cell and face data defined over MRST grids
-
-  - physical units (length, time, mass, pressures, etc) and conversion routines
-
-  - basic reading, parsing, and writing ECLIPSE input data
-
-  - various utility routines and functionality
-
-
-To get started we suggest you look at some examples. To list all the examples in mrst core at the matlab command prompt type:
-
->> mrstExamples
-
-Each module also has its own examples which can also be listed, e.g. to list examples for the ad-core module you could type:
-
->> mrstExamples ad-core
-
-
-
+Please refer to MRST website https://www.sintef.no/projectweb/mrst/faq/ on how to run the examples.
 
