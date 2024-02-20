@@ -24,10 +24,6 @@ plotGrid(G); view(3); axis tight
 % Assume an isotropic and homogenous aquifer with a permeability of 100 mD,
 % porosity of 0.18
 rock = makeRock(G, 100*milli*darcy, 0.18);
-% diffusion
-rock.Mechanisms.diffusion = 1;
-rock.Di=[0,2,2,2]*10^-9;
-rock.tau = 2;
 
 % Rock compressibility is 8e-5/bar
 f = initSimpleADIFluid('phases', 'wg', 'blackoil', false, 'rho', [1000, 700], 'cR', 8e-5/barsa, 'n', [4, 2]);
@@ -46,16 +42,10 @@ ECPAnatural = imposeRelpermScaling(ECPAnatural, 'SWCR', 0.3, 'SGU', 0.7);
 % Validate both models to initialize the necessary state function groups
 ECPAoverall = ECPAoverall.validateModel();
 ECPAnatural = ECPAnatural.validateModel();
-for ii = 1:numel(rock.Di)
-    Diff = makeRock(G, rock.Di(ii), NaN);
-    T1 = getFaceTransmissibility(G, Diff);
-    ECPAoverall.operators.T_diff{ii} = T1(ECPAoverall.operators.internalConn);
-    ECPAnatural.operators.T_diff{ii} = T1(ECPAnatural.operators.internalConn);
-end
 
 %% Set up BC + initial conditions/initial guess
 % The impermeable top layer of the aquifer is located at a depth of 1200 m
-% with a corresponding pressure and temperature of 12 MPa and 38 ¡æ. brine
+% with a corresponding pressure and temperature of 12 MPa and 38 Â¡Ã¦. brine
 % have 40000 ppm salinity.
 p = 120*barsa; T = 38+273.15; z = [0.976,0,0.012,0.012];     % p, T, z
 
