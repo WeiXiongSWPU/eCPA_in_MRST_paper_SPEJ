@@ -22,16 +22,8 @@ G = computeGeometry(G);
 % Assume an isotropic and homogenous aquifer with a permeability of 100 mD,
 % porosity of 0.15
 rock = makeRock(G, 100*milli*darcy, 0.15);
-% diffusion
-rock.Mechanisms.diffusion = 1;
-rock.Di=[0,2,0,0]*10^-9;
-rock.tau = 2;
-rock.BC = struct('Pce', 0.2*barsa, 'sWi', 0.2);
-% rock.VG = struct('Pce', 0.2*barsa, 'sWi', 0.2, 'snt', 0.005);
-% rock.VGIFT = struct('Pce', 0.64, 'sWi', 0.2, 'snt', 0.005);
 
 f = initSimpleADIFluid('phases', 'wg', 'blackoil', false, 'rho', [1000, 700], 'n', [4, 2]);
-f.pcWG = 1;
 ECPAmixture = ECPATableCompositionalMixture({'Water','Carbondioxide', 'Na+', 'Cl-'});
 
 % Construct models for both formulations. Same input arguments
@@ -47,12 +39,7 @@ ECPAnatural = imposeRelpermScaling(ECPAnatural, 'SWCR', 0.2, 'KRG', 0.4,'SGU',0.
 % Validate both models to initialize the necessary state function groups
 ECPAoverall = ECPAoverall.validateModel();
 ECPAnatural = ECPAnatural.validateModel();
-for ii = 1:numel(rock.Di)
-    Diff = makeRock(G, rock.Di(ii), NaN);
-    T1 = getFaceTransmissibility(G, Diff);
-    ECPAoverall.operators.T_diff{ii} = T1(ECPAoverall.operators.internalConn);
-    ECPAnatural.operators.T_diff{ii} = T1(ECPAnatural.operators.internalConn);
-end
+
 %% Set up BC + initial conditions/initial guess
 p0 = 300*barsa; T = 84.4+273.15; z = [0.964,0, 0.018,0.018];     % p, T, z
 
