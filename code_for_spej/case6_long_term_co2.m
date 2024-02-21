@@ -1,30 +1,34 @@
 %% Benchmark for long-term CO2 sequestration simulations
-% The aquifer has a dip of 1%, and it is deep enough such that the
-% injected CO2 is in supercritical phase, which is immiscible with the
-% resident water. The top and bottom are no-flow boundaries. The initial
-% in-situ pressures at the left and right boundaries are held constant.
 mrstModule add ad-core ad-props mrst-gui compositional deckformat linearsolvers
 gravity reset on
 
-% The numerical model consists of 150 grid blocks in horizontal direction
-% and 50 grid blocks in vertical direction.The grid blocks in horizontal
-% direction have the same size of 100 meter. The grid blocks in the
-% vertical direction have the same size of 1.25 meter.
-nx = 0:100:15000;
-ny = 0:100:100;
-nz = 0:1.25:50;
-dz = [150:-1:0,150:-1:0];
+nx = 0:403.86:16154.4;
+ny = 0:403.86:16154.4;
+nz = 0:7.62:304.8;
+dz = (161.544:-4.0386:0);
+dz = meshgrid(dz ,dz);
 
-G = tensorGrid(nx, ny, nz,'depthz', dz);
+G = tensorGrid(nx, ny, nz,'depthz', dz');
 G = computeGeometry(G);
-% plotGrid(G); view(3); axis tight
+plotGrid(G); view(3); axis tight
 
-% Assume an isotropic and homogenous aquifer with a permeability of 100 mD,
-% porosity of 0.15
-rock = makeRock(G, 100*milli*darcy, 0.15);
+rock = makeRock(G, [100,100,100]*milli*darcy, 0.25);
+[nx, ny, nz] = deal(G.cartDims(1), G.cartDims(2), G.cartDims(3));
+nf = nx*ny;
+vhr = 0.001;
+rock.perm(1:4*nf,:) = repmat([89,89,89*vhr]*milli*darcy,4*nf,1);
+rock.perm(1+4*nf:8*nf,:) = repmat([65,65,65*vhr]*milli*darcy,4*nf,1);
+rock.perm(1+8*nf:12*nf,:) = repmat([46,46,46*vhr]*milli*darcy,4*nf,1);
+rock.perm(1+12*nf:16*nf,:) = repmat([30,30,30*vhr]*milli*darcy,4*nf,1);
+rock.perm(1+16*nf:20*nf,:) = repmat([15,15,15*vhr]*milli*darcy,4*nf,1);
+rock.perm(1+20*nf:24*nf,:) = repmat([120,120,120*vhr]*milli*darcy,4*nf,1);
+rock.perm(1+24*nf:28*nf,:) = repmat([165,165,165*vhr]*milli*darcy,4*nf,1);
+rock.perm(1+28*nf:32*nf,:) = repmat([235,235,235*vhr]*milli*darcy,4*nf,1);
+rock.perm(1+32*nf:36*nf,:) = repmat([840,840,840*vhr]*milli*darcy,4*nf,1);
+rock.perm(1+36*nf:40*nf,:) = repmat([370,370,370*vhr]*milli*darcy,4*nf,1);
 
-f = initSimpleADIFluid('phases', 'wg', 'blackoil', false, 'rho', [1000, 700], 'n', [4, 2]);
-ECPAmixture = ECPATableCompositionalMixture({'Water','Carbondioxide', 'Na+', 'Cl-'});
+f = initSimpleADIFluid('phases', 'wg', 'blackoil', false, 'rho', [1000, 700], 'n', [2, 2]);
+ECPAmixture = ECPATableCompositionalMixture({'Water','Carbondioxide'});
 
 % Construct models for both formulations. Same input arguments
 ECPAarg = {G, rock, f, ...                              % Standard arguments
@@ -34,44 +38,43 @@ ECPAarg = {G, rock, f, ...                              % Standard arguments
 diagonal_backend = DiagonalAutoDiffBackend('modifyOperators', true, 'rowMajor', true);
 ECPAoverall = ECPAGenericOverallCompositionModel(ECPAarg{:}, 'AutoDiffBackend', diagonal_backend);   % Overall mole fractions
 ECPAnatural = ECPAGenericNaturalVariablesModel(ECPAarg{:}, 'AutoDiffBackend', diagonal_backend);     % Natural variables
-ECPAoverall = imposeRelpermScaling(ECPAoverall, 'SWCR', 0.2, 'KRG', 0.4,'SGU',0.8);
-ECPAnatural = imposeRelpermScaling(ECPAnatural, 'SWCR', 0.2, 'KRG', 0.4,'SGU',0.8);
+ECPAoverall = imposeRelpermScaling(ECPAoverall, 'SWCR', 0.25,  'KRW', 0.334, 'SGCR', 0.25,'KRG',1,'SGU',0.75,'SWU',0.75);
+ECPAnatural = imposeRelpermScaling(ECPAnatural, 'SWCR', 0.25,  'KRW', 0.334, 'SGCR', 0.25,'KRG',1,'SGU',0.75,'SWU',0.75);
 % Validate both models to initialize the necessary state function groups
 ECPAoverall = ECPAoverall.validateModel();
 ECPAnatural = ECPAnatural.validateModel();
 
 %% Set up BC + initial conditions/initial guess
-p0 = 300*barsa; T = 84.4+273.15; z = [0.964,0, 0.018,0.018];     % p, T, z
+p0 = 156*barsa; T = 60+273.15; z = [1,0];     % p, T, z
 
 eCPA = ECPAEquationOfStateModel([], ECPAmixture, 'eCPA');
-[~, ~, ~,~, ~,rho0] = eCPAstandaloneFlash(p0, T, z, eCPA);
+[~, ~, ~,~, ~,rho0] = eCPAstandaloneFlash(p0, T, z, eCPA);  
 g = norm(gravity);
 [z_0, z_max] = deal(0, max(G.cells.centroids(:,3)));
 equil  = ode23(@(z,p) g .* rho0, [z_0, z_max], p0);
 p = reshape(deval(equil, G.cells.centroids(:,3)), [], 1);  clear equil
-% p1 = p0+rho0*g.*G.cells.centroids(:,3);
 
-% The simulations are continued for up to 4000 years after CO2 injection has
-% stopped.
-totTime = 4000*year;
+totTime = 1000*year;
 
 % constant pressure boundary conditions
-bc = pside([], G, 'xmax', p(G.cells.centroids(:,1)==14950), 'sat', [1, 0]);       % Standard bc
-bc = pside(bc, G, 'xmin', p(G.cells.centroids(:,1)==50), 'sat', [1, 0]);       % Standard bc
+bc = pside([], G, 'xmax', p(G.cells.centroids(:,1)==15952.47), 'sat', [1, 0]);       % Standard bc
+bc = pside(bc, G, 'xmin', p(G.cells.centroids(:,1)<220), 'sat', [1, 0]);       % Standard bc
+bc = pside(bc, G, 'ymax', p(G.cells.centroids(:,2)==15952.47), 'sat', [1, 0]);       % Standard bc
+bc = pside(bc, G, 'ymin', p(G.cells.centroids(:,2)<220), 'sat', [1, 0]);       % Standard bc
 bc.components = repmat(z, numel(bc.face), 1);      % Boundary z
 
-% CO2 is injected at a rate of 9000 t/year for 20 years
-[~, ~, ~,~, ~,rho] = eCPAstandaloneFlash(1*barsa, 298.15, [0, 1, 0, 0], eCPA);
-W = addWell([], G, rock, 5900, 'name', 'inj', 'type', 'rate', 'Compi', ...
-[0 1], 'val', 9000*1000/rho/year, 'components', [0, 1, 0, 0]);
+% CO2 is injected at a rate of 960000 t/year for 50 years
+[~, ~, ~,~, ~,rho] = eCPAstandaloneFlash(1*barsa, 298.15, [0, 1], eCPA);  
+W = addWell([], G, rock, 63170, 'name', 'inj', 'type', 'rate', 'Compi', ...
+[0 1], 'val', 960000*1000/rho/year, 'components', [0, 1]);
 
 % Plot well
-% show = true([G.cells.num, 1]);
-% cellInx = 50:150:5900;
-% show(cellInx) = false;
-% plotCellData(G, convertTo(p, barsa), show, 'EdgeColor', 'k')
-% plotWell(G, W, 'height', 10)
-% view(0, 0), camproj perspective
+show = true([G.cells.num, 1]);
+cellInx = 770:1600:63170;
+show(cellInx) = false;
+plotCellData(G, convertTo(p, barsa), show, 'EdgeColor', 'k')
+plotWell(G, W, 'height', 10)
+view(0, 0), camproj perspective
 
 % Initialize the problem
 s0 = [1, 0];
@@ -79,65 +82,30 @@ state0 = initResSol(G, p, s0);
 state0.T = repmat(T, G.cells.num, 1);
 state0.components = repmat(z, G.cells.num, 1);
 
-% CO2 is injected at a rate of 9000 t/year for 20 years
-dt1 = rampupTimesteps(20*year, 0.5*year, 12);
-dt2 = rampupTimesteps(totTime-20*year, 1*year, 20);
+dt1 = rampupTimesteps(50*year, 1*year, 10);
+dt2 = rampupTimesteps(totTime-50*year, 1*year, 10);
 dt=[dt1;dt2];
 
 schedule = simpleSchedule(dt,'W', W, 'bc', bc);
 schedule.step.control(numel(dt1)+1:end) = 2;
 schedule.control(2) = schedule.control(1);
-schedule.control(2).W.val = 0;
+schedule.control(2).W.val = 0; 
 
 % Set up nonlinear solver with high report level to output intermediate
 % states
-% nls = NonLinearSolver('useRelaxation', true);
-%nls.LinearSolver = AMGCL_CPRSolverAD()
-nls = getNonLinearSolver(model);
-nls.useRelaxation = true;
+nls = NonLinearSolver('useRelaxation', true);
 % [~, ECPAstatesn, ECPAreportn] = simulateScheduleAD(state0, ECPAnatural, schedule, 'nonlinearsolver', nls);
 [~, ECPAstateso, ECPAreporto] = simulateScheduleAD(state0, ECPAoverall, schedule, 'nonlinearsolver', nls);
 
-%% Launch interactive plotting
-figure;
+figure
 plotToolbar(G, ECPAstateso)
 view(0,0)
 colorbar
 
-PV=[];
-time = cumsum(dt)./year;
-for i = 1:numel(ECPAstateso)
-    sg = ECPAstateso{i}.s(:,2);
-    vg = 12500*0.15.*sg;
-    PV=[PV; time(i),sum(vg)];
-end
-figure
-plot(PV(:,1),PV(:,2));
-
-Tip=[];
-for i = 1:numel(ECPAstateso)
-    sg = ECPAstateso{i}.s(1:150,2);
-    vg = 100*find(sg>0, 1, 'last' );
-    if isempty(vg)
-       vg=5000;
-    end
-    Tip=[Tip; time(i),vg-5000];
-end
-figure
-plot(Tip(:,1),Tip(:,2));
-
-for i = 1:numel(ECPAstateso)
-    ECPAstates{i}.pressure=ECPAstateso{i}.pressure;
-    ECPAstates{i}.s=ECPAstateso{i}.s;
-    ECPAstates{i}.x=ECPAstateso{i}.x;
-    ECPAstates{i}.y=ECPAstateso{i}.y;
-    ECPAstates{i}.L=ECPAstateso{i}.L;
-end
-save BC_PC_1mol ECPAstates
 
 %%
 %{
-Copyright 2009-2024 SINTEF Digital, Mathematics & Cybernetics.
+Copyright 2009-2022 SINTEF Digital, Mathematics & Cybernetics.
 
 This file is part of The MATLAB Reservoir Simulation Toolbox (MRST).
 
