@@ -23,7 +23,7 @@ rock = makeRock(G, 100*milli*darcy, 0.18);
 % Rock compressibility is 8e-5/bar
 f = initSimpleADIFluid('phases', 'wg', 'blackoil', false, 'rho', [1000, 700], 'cR', 8e-5/barsa, 'n', [7, 2]);
 ECPAmixture = ECPATableCompositionalMixture({'Water','Carbondioxide','Na+','Cl-'});
-% f.pcWG = 1;
+
 % Construct models for both formulations. Same input arguments
 ECPAarg = {G, rock, f, ...                              % Standard arguments
        ECPAmixture,...                                  % Compositional mixture
@@ -40,7 +40,7 @@ ECPAnatural = ECPAnatural.validateModel();
 
 %% Set up BC + initial conditions/initial guess
 % The impermeable top layer of the aquifer is located at a depth of 1200 m
-% with a corresponding pressure and temperature of 12 MPa and 38 ¡æ.
+% with a corresponding pressure and temperature of 12 MPa and 38 Â¡Ã¦.
 p = 120*barsa; T = 38+273.15; z = [0.976,0,0.012,0.012];     % p, T, z
 
 % The simulations are continued for up to 150 years after CO2 injection has
