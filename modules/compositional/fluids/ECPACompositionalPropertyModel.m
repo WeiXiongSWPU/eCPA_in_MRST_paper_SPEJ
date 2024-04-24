@@ -74,17 +74,17 @@ classdef ECPACompositionalPropertyModel < PropertyModel
                     for i = 1:ncomp
                         M = M + x{i}.*MW(i);
                     end
-                    [L, alp, B] = model.getFVparam(x, Tr, names, nmole);
+                    [L, alp, B] = model.getFVparam(x, Tr, names, nmole, T);
                     rho = model.computeMolarDensity(eos, P, x, Z, T, isLiquid);
                 else
                     mu0_m = exp(sum(x(:,1:nmole) .* log(mu0), 2));
                     M = sum(bsxfun(@times, x, MW), 2);
-                    [L, alp, B] = model.getFVparam(x, Tr, names, nmole);
+                    [L, alp, B] = model.getFVparam(x, Tr, names, nmole, T);
                     rho = model.computeMolarDensity(eos, P, x, Z, T, isLiquid);
                 end
                 E = 1e-3 .* M .* alp .* rho  + P ./ rho;
                 d_mu = 1e-6.*rho.*L.*E.* (1000.*M./(3.*R.*T)).^0.5 .*exp(B.*(E./(R.*T)).^1.5);
-                mu = 1e-7 .* (mu0_m + d_mu); % Pa¡¤s
+                mu = 1e-7 .* (mu0_m + d_mu); % PaÂ·s
             else
                 % Compute viscosity using the Lohrenz, Bray and Clark
                 % correlation for hydrocarbon mixtures (LBC viscosity)
@@ -134,7 +134,7 @@ classdef ECPACompositionalPropertyModel < PropertyModel
             end
         end
         
-        function [Lm, alpm, Bm] = getFVparam(model, x, Tr, names, nmole)
+        function [Lm, alpm, Bm] = getFVparam(model, x, Tr, names, nmole ,T)
             nc = numel(Tr(:,1));
             ncomp = numel(names);
             L = zeros(nc, ncomp);alp = zeros(nc, ncomp);B = zeros(nc, ncomp);
@@ -175,6 +175,35 @@ classdef ECPACompositionalPropertyModel < PropertyModel
                         B(:,i) = 0.0088;
                 end
             end
+            
+            if  ncomp-nmole > 0
+                i = nmole+1;
+                switch(lower([names{i},names{i+1}]))
+                    case {'na+cl-'}
+                        L(:,i) = -1.3808774338e-9.*T.^5 + 2.66475775e-6.*T.^4 ...
+                            -0.002043488.*T.^3 + 0.7784462.*T.^2 -147.3342.*T + 1.1087469e4;
+                        alp(:,i) = 345;
+                        B(:,i) = 0.004;
+                        L(:,i+1) = L(:,i);
+                        alp(:,i+1) = alp(:,i);
+                        B(:,i+1) = B(:,i);
+                    case {'k+cl-'}
+                        L(:,i) = 2.3498711e-6.*T.^3 -0.002791524.*T.^2 +1.09497197.*T -142.0368220;
+                        alp(:,i) = 261;
+                        B(:,i) = 0.003;
+                        L(:,i+1) = L(:,i);
+                        alp(:,i+1) = alp(:,i);
+                        B(:,i+1) = B(:,i);
+                    case {'ca2+cl-'}
+                        L(:,i) = 1.73728e-4.*T.^2 -0.151318.*T +35.07207;
+                        alp(:,i) = 242;
+                        B(:,i) = 0.006;
+                        L(:,i+1) = L(:,i);
+                        alp(:,i+1) = alp(:,i);
+                        B(:,i+1) = B(:,i);
+                end
+            end
+                        
             if iscell(x)
                 Lm = 0; alpm = 0; Bm = 0;
                 for i = 1 : ncomp
